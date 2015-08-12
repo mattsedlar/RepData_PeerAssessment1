@@ -1,10 +1,14 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
+author: "By Matthew Sedlar"
 output: 
   html_document:
     keep_md: true
 ---
 
+## Overview
+
+This report looks at data from a personal activity monitoring device and contains an exploratory analysis of the data. The device collected data at 5-minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012, and include the number of steps taken in 5-minute intervals each day.
 
 ## Loading and preprocessing the data
 
@@ -14,7 +18,7 @@ Let's check if we have a "data" folder in our analysis template. Then we'll uplo
 
 ```{r cache=TRUE, message=FALSE}
 
-# Does this directory exist. If not, I'll do all the work for you.
+# Does a data directory exist? If not, I'll do all the work for you. Don't get up or anything.
 if(!file.exists("./data")) { dir.create("./data") }
 
 # The zip file.
@@ -121,7 +125,72 @@ That would be interval 835.
 
 ## Imputing missing values
 
-But wait. You know how I have been ignoring all the NAs in my calculations. That could be a problem.
+But wait. You know how I have been ignoring all the NAs in my calculations? That could be a problem.
 
+How many missing values are there in the original data set?
+
+```{r}
+
+mv <- is.na(data$steps)
+
+# In this table, TRUE indicates the number of NAs in the steps column
+table(mv)
+  
+```
+
+We could use the data frame I just produced to fill in the missing values with the averages during that particular 5-minute interval. First, I'll copy the original data frame. Then I'll write a function that compares our copy to the data frame with the averages by interval. When the function is run, it rewrites the NAs with the average for that interval.
+
+```{r}
+
+# Let's copy our original data frame.
+completedata <- data
+
+# function to fill in the holes
+# function takes two arguments: 
+# your df w/ missing values and the df with the means by intervals
+
+fillmv <- function(df,meandf) {
+  x <- 1
+  while (x <= nrow(df)) {
+    # conditional for if value is NA
+    if(is.na(df[,1][x])) {
+      # the interval the NA sits at
+      int <- df[,3][x]
+      # match that interval to the corresponding interval in our averages df
+      match <- meandf %>% filter(interval == int)
+      #grab that average and replace the NA
+      avg <- match$meansteps[1]
+      df[,1][x] <- avg
+      x <- x + 1
+    }
+    else x <- x + 1
+  }
+  df
+}
+
+# Run the function
+completedata <- fillmv(completedata,grouped2)
+
+```
+
+Now let's recreate our first histogram with the total number of steps per day, but this time with all the missing values filled in.
+
+```{r}
+
+ggplot(data = completedata) + 
+  geom_bar(aes(date, steps), stat="identity") +
+  ggtitle("Overall Steps Taken Per Day")
+
+```
+
+Let's take a look at the mean and median.
+
+```{r}
+
+summary(completedata$steps)
+
+```
+
+It appears that filling in that missing data doesn't really change the mean and median.
 
 ## Are there differences in activity patterns between weekdays and weekends?
