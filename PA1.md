@@ -50,32 +50,101 @@ str(data)
 ##  $ interval: int  0 5 10 15 20 25 30 35 40 45 ...
 ```
 
-That "date" variable should be in the Date class to make life easier for everyone. I prefer dplyr's mutate function because it makes me feel like I'm creating a new X-men character who has the power to report dates accurately.
+That "date" variable should be in the Date class to make life easier for everyone. I like the transform function because it makes me feel like I'm creating a new Transformers character who has the power to report dates accurately.
 
 
 ```r
 library(dplyr)
 
-data <- data %>% mutate(date = as.Date(date))
+data <- tbl_df(data)
+
+data <- data %>% transform(date = as.Date(date))
 ```
 
 
 ## What is mean total number of steps taken per day?
 
-Let's create a plot of the overall steps taken per day and then find our mean and median.
+Let's create a plot of the overall steps taken per day and then find our mean and median. Let's create a plot with ggplot2 because that's what all the cool kids use. 
 
 
 ```r
 library(ggplot2)
 
-ggplot(data = data) + geom_bar(aes(date, steps), stat="identity")
+ggplot(data = data) + 
+  geom_bar(aes(date, steps), stat="identity") +
+  ggtitle("Overall Steps Taken Per Day")
 ```
 
 ![](PA1_files/figure-html/unnamed-chunk-4-1.png) 
 
+Then let's find the mean and median. We'll have to sum the number of steps per date to find this. And let's not forget there are a lot of NA values in our data, so we'll use 'na.rm' to exclude them.
+
+
+```r
+# a new data frame to show our averages by date
+grouped <- data %>% 
+  group_by(date) %>% 
+  summarize(sum = sum(steps, na.rm=TRUE),average=mean(steps, na.rm=TRUE), median= median(steps,na.rm=TRUE))
+
+# the mean of those averages
+avgsteps <- mean(grouped$average, na.rm=TRUE)
+avgsteps
+```
+
+```
+## [1] 37.3826
+```
+
+```r
+# and the median
+medsteps <- median(grouped$median, na.rm=TRUE)
+medsteps
+```
+
+```
+## [1] 0
+```
+
+What the mean and median tell me is that there isn't a whole lot of activity during the day, even though the overall steps taken per day look impressive.
+
 ## What is the average daily activity pattern?
 
+To explore what I rambled about in the above paragraph, let's look at the daily activity pattern for each day using the five-minute interval identifier. For this, let's create another data frame grouped by interval and summarize the mean across all days for that interval. Then let's plot that sucker.
 
+
+```r
+grouped2 <- data %>% group_by(interval) %>% summarize(meansteps=mean(steps, na.rm=TRUE))
+
+# our plot
+ggplot(grouped2) + 
+  geom_line(aes(interval, meansteps)) + 
+  ggtitle("Average Activity During Five-Minute Intervals")
+```
+
+![](PA1_files/figure-html/unnamed-chunk-6-1.png) 
+
+It appears there is a spike of activity. Let's figure out which interval that is.
+
+
+```r
+grouped2 <- grouped2 %>% arrange(desc(meansteps))
+
+head(grouped2)
+```
+
+```
+## Source: local data frame [6 x 2]
+## 
+##   interval meansteps
+## 1      835  206.1698
+## 2      840  195.9245
+## 3      850  183.3962
+## 4      845  179.5660
+## 5      830  177.3019
+## 6      820  171.1509
+```
+
+That would be interval 835.
 
 ## Imputing missing values
 
