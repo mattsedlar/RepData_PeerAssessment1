@@ -81,32 +81,16 @@ ggplot(data = data) +
 
 ![](PA1_files/figure-html/unnamed-chunk-4-1.png) 
 
-Then let's find the mean and median. We'll have to sum the number of steps per date to find this. And let's not forget there are a lot of NA values in our data, so we'll use 'na.rm' to exclude them.
+Then let's find the mean and median. A simple summary will show us, as well as the number of NAs.
 
 
 ```r
-# a new data frame to show our averages by date
-grouped <- data %>% 
-  group_by(date) %>% 
-  summarize(sum = sum(steps, na.rm=TRUE),average=mean(steps, na.rm=TRUE), median= median(steps,na.rm=TRUE))
-
-# the mean of those averages
-avgsteps <- mean(grouped$average, na.rm=TRUE)
-avgsteps
+summary(data$steps)
 ```
 
 ```
-## [1] 37.3826
-```
-
-```r
-# and the median
-medsteps <- median(grouped$median, na.rm=TRUE)
-medsteps
-```
-
-```
-## [1] 0
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max.    NA's 
+##    0.00    0.00    0.00   37.38   12.00  806.00    2304
 ```
 
 What the mean and median tell me is that there isn't a whole lot of activity during the day, even though the overall steps taken per day look impressive.
@@ -117,10 +101,10 @@ To explore what I rambled about in the above paragraph, let's look at the daily 
 
 
 ```r
-grouped2 <- data %>% group_by(interval) %>% summarize(meansteps=mean(steps, na.rm=TRUE))
+grouped <- data %>% group_by(interval) %>% summarize(meansteps=mean(steps, na.rm=TRUE))
 
 # our plot
-ggplot(grouped2) + 
+ggplot(grouped) + 
   geom_line(aes(interval, meansteps)) + 
   ggtitle("Average Activity During Five-Minute Intervals")
 ```
@@ -131,9 +115,9 @@ It appears there is a spike of activity. Let's figure out which interval that is
 
 
 ```r
-grouped2 <- grouped2 %>% arrange(desc(meansteps))
+grouped <- grouped %>% arrange(desc(meansteps))
 
-head(grouped2)
+head(grouped)
 ```
 
 ```
@@ -154,7 +138,7 @@ That would be interval 835.
 
 But wait. You know how I have been ignoring all the NAs in my calculations? That could be a problem.
 
-How many missing values are there in the original data set?
+How many missing values are there in the original data set? I already showed this above, but here it is again.
 
 
 ```r
@@ -170,7 +154,7 @@ table(mv)
 ## 15264  2304
 ```
 
-We could use the data frame I just produced to fill in the missing values with the averages during that particular 5-minute interval. First, I'll copy the original data frame. Then I'll write a function that compares our copy to the data frame with the averages by interval. When the function is run, it rewrites the NAs with the average for that interval.
+We could use the grouped data frame I just produced to fill in the missing values with the averages during that particular 5-minute interval. First, I'll copy the original data frame. Then I'll write a function that compares our copy to the data frame with the averages by interval. When the function is run, it rewrites the NAs with the average for that interval.
 
 
 ```r
@@ -201,7 +185,7 @@ fillmv <- function(df,meandf) {
 }
 
 # Run the function
-completedata <- fillmv(completedata,grouped2)
+completedata <- fillmv(completedata,grouped)
 ```
 
 Now let's recreate our first histogram with the total number of steps per day, but this time with all the missing values filled in.
@@ -227,6 +211,56 @@ summary(completedata$steps)
 ##    0.00    0.00    0.00   37.38   27.00  806.00
 ```
 
+It appears that filling in that missing data doesn't really change the mean and median. However, it does lead to biased parameter estimates like variance. Example:
 
+
+```r
+#original data with missing values
+var(data$steps, na.rm=TRUE)
+```
+
+```
+## [1] 12543
+```
+
+```r
+# data using averages to fill in missing values
+var(completedata$steps)
+```
+
+```
+## [1] 11093.31
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+Finally, let's compare activity over the week with activity over the weekend. I'm going to add a new variable to the data frame called "day" that first identifies the weekday by date. Then I'll run sapply over the column to split the days between "weekday" and "weekend."
+
+
+```r
+# new variable to identify the weekday
+data <- data %>% mutate(day = weekdays(date))
+
+# sapply through the variable to separate weekends and weekdays
+data$day <- sapply(data$day, function(x) if(x == "Saturday" | x == "Sunday") { x <- "weekend" } else x = "weekday" )
+```
+
+Now let's do what we did with five-minute intervals and mean summarized by each day, except let's summarize the mean across weekdays and weekends. I'll create a new data frame called grouped2 that groups the data by interval and day with the average steps for each, then I'll plot the results.
+
+
+```r
+grouped2 <- data %>% 
+  group_by(interval,day) %>% 
+  summarize(meansteps=mean(steps, na.rm=TRUE))
+
+# our plot
+ggplot(grouped2) + 
+  geom_line(aes(interval, meansteps)) + 
+  ggtitle("Average Activity During Five-Minute Intervals") +
+  # this is the important part, we facet the plot by day
+  facet_wrap(~ day,nrow=2, ncol=1)
+```
+
+![](PA1_files/figure-html/unnamed-chunk-14-1.png) 
+
+On average, there's a spike of activity on weekday mornings, but not on the weekend. My guess is that this person jogs or takes a morning walk and decides to sleep in on the weekends. That is wise.
